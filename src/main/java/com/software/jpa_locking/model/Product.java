@@ -1,4 +1,4 @@
-package com.software.jpa_locking.entity;
+package com.software.jpa_locking.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
