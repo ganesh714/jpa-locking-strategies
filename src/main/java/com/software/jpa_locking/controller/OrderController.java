@@ -16,7 +16,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final OrderService orderService;
+    @Autowired
+    OrderService orderService;
 
     @PostMapping("/pessimistic")
     public ResponseEntity<String> placeOrderPessimistic(@RequestBody OrderRequest request) {
