@@ -8,6 +8,16 @@ When multiple users try to buy the same limited-stock item at the exact same tim
 - **Optimistic Locking (`@Version`)**: Assumes conflicts are rare. It doesn't lock the database row. Instead, it checks a version number when saving. If another transaction has modified the row since it was read, the version changes, and JPA throws an `OptimisticLockException`. It's fast but requires you to handle retry logic on failures.
 - **Pessimistic Locking (`@Lock`)**: Assumes conflicts are common. It locks the database row at the database level (`SELECT ... FOR UPDATE`) as soon as it's read. No other transaction can read or write to that row until the lock is released. It's extremely safe but can slow down the system if many users are waiting for the lock.
 
+## Where is the Locking Implemented?
+
+### 1. Optimistic Locking
+- **Entity**: In `src/main/java/com/software/jpa_locking/model/Product.java`, we use the `@Version` annotation on the `version` field. This enables optimistic locking at the entity level.
+- **Service**: In `src/main/java/com/software/jpa_locking/service/OrderService.java`, the `placeOrderOptimistic` method handles conflicts by catching the `ObjectOptimisticLockingFailureException`.
+
+### 2. Pessimistic Locking
+- **Repository**: In `src/main/java/com/software/jpa_locking/repository/ProductRepository.java`, we use the `@Lock(LockModeType.PESSIMISTIC_WRITE)` annotation on the `findByIdWithPessimisticLock` method. This explicitly tells JPA to issue a `SELECT ... FOR UPDATE` query.
+- **Service**: In `src/main/java/com/software/jpa_locking/service/OrderService.java`, the `placeOrderPessimistic` method calls this repository method. The database handles the row-level lock automatically, forcing other concurrent transactions to wait.
+
 ## Prerequisites
 - Docker and Docker Compose
 - Java 17 (if running without Docker)
