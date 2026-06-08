@@ -1,7 +1,7 @@
 package com.software.jpa_locking.service;
 
 import com.software.jpa_locking.dto.OrderRequest;
-import com.software.jpa_locking.entity.Product;
+import com.software.jpa_locking.model.Product;
 import com.software.jpa_locking.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -14,7 +14,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderService {
 
-    private final ProductRepository productRepository;
+    @Autowired
+    ProductRepository productRepository;
 
     @Transactional
     public String placeOrderPessimistic(OrderRequest request) {
@@ -27,7 +28,7 @@ public class OrderService {
 
         product.setStock(product.getStock() - request.getQuantity());
         productRepository.save(product);
-        
+
         return "Order placed successfully for User " + request.getUserId() + ". Remaining stock: " + product.getStock();
     }
 
@@ -44,7 +45,8 @@ public class OrderService {
             product.setStock(product.getStock() - request.getQuantity());
             productRepository.save(product);
 
-            return "Order placed successfully for User " + request.getUserId() + ". Remaining stock: " + product.getStock();
+            return "Order placed successfully for User " + request.getUserId() + ". Remaining stock: "
+                    + product.getStock();
         } catch (ObjectOptimisticLockingFailureException e) {
             return "Failed: Order conflicted with another transaction. Please try again.";
         }
