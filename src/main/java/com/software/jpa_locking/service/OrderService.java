@@ -1,12 +1,17 @@
 package com.software.jpa_locking.service;
 
 import com.software.jpa_locking.dto.OrderRequest;
+import com.software.jpa_locking.dto.OrderResponse;
+import com.software.jpa_locking.exception.OutOfStockException;
+import com.software.jpa_locking.exception.ProductNotFoundException;
 import com.software.jpa_locking.model.Product;
 import com.software.jpa_locking.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,39 +21,56 @@ public class OrderService {
 
     @Autowired
     ProductRepository productRepository;
+    
+    @Autowired
+    OrderStatsService statsService;
 
     @Transactional
-    public String placeOrderPessimistic(OrderRequest request) {
+    public OrderResponse placeOrderPessimistic(OrderRequest request) {
         Product product = productRepository.findByIdWithPessimisticLock(request.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
         if (product.getStock() < request.getQuantity()) {
-            return "Failed: Not enough stock for product " + product.getName();
+            statsService.incrementFailedOutOfStock();
+            throw new OutOfStockException("Not enough stock available");
         }
 
         product.setStock(product.getStock() - request.getQuantity());
         productRepository.save(product);
+        statsService.incrementSuccessfulPessimistic();
 
-        return "Order placed successfully for User " + request.getUserId() + ". Remaining stock: " + product.getStock();
+        return new OrderResponse(
+                UUID.randomUUID().toString(),
+                product.getId(),
+                request.getQuantity(),
+                product.getStock()
+        );
     }
 
     @Transactional
-    public String placeOrderOptimistic(OrderRequest request) {
+    public OrderResponse placeOrderOptimistic(OrderRequest request) {
         try {
             Product product = productRepository.findById(request.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Product not found"));
+                    .orElseThrow(() -> new ProductNotFoundException("Product not found"));
 
             if (product.getStock() < request.getQuantity()) {
-                return "Failed: Not enough stock for product " + product.getName();
+                statsService.incrementFailedOutOfStock();
+                throw new OutOfStockException("Not enough stock available");
             }
 
             product.setStock(product.getStock() - request.getQuantity());
             productRepository.save(product);
+            statsService.incrementSuccessfulOptimistic();
 
-            return "Order placed successfully for User " + request.getUserId() + ". Remaining stock: "
-                    + product.getStock();
+            return new OrderResponse(
+                    UUID.randomUUID().toString(),
+                    product.getId(),
+                    request.getQuantity(),
+                    product.getStock()
+            );
         } catch (ObjectOptimisticLockingFailureException e) {
-            return "Failed: Order conflicted with another transaction. Please try again.";
+            statsService.incrementFailedConflict();
+            throw e; // Controller advice will handle this
         }
     }
 }
