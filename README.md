@@ -33,16 +33,54 @@ docker-compose up -d --build
 
 The database is automatically seeded with a `products` table and a dummy product with a stock of 100.
 
+## Manual Testing (Single Requests)
+
+You can manually test the endpoints using PowerShell (`Invoke-RestMethod`) or Postman / standard `curl`.
+
+**Using PowerShell (Windows):**
+```powershell
+# Test Pessimistic Lock
+Invoke-RestMethod -Uri "http://localhost:8080/api/orders/pessimistic" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"productId": 1, "quantity": 1, "userId": 1}'
+
+# Test Optimistic Lock
+Invoke-RestMethod -Uri "http://localhost:8080/api/orders/optimistic" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"productId": 1, "quantity": 1, "userId": 2}'
+```
+
+**Using Standard cURL (Linux/Git Bash):**
+```bash
+# Test Pessimistic Lock
+curl -X POST http://localhost:8080/api/orders/pessimistic \
+  -H "Content-Type: application/json" \
+  -d '{"productId": 1, "quantity": 1, "userId": 1}'
+
+# Test Optimistic Lock
+curl -X POST http://localhost:8080/api/orders/optimistic \
+  -H "Content-Type: application/json" \
+  -d '{"productId": 1, "quantity": 1, "userId": 2}'
+```
+
 ## Testing Concurrency
-We use a Bash script `concurrent-test.sh` to fire concurrent requests at the application.
+We provide scripts to fire concurrent requests at the application:
+- `concurrent-test.ps1` for Windows PowerShell
+- `concurrent-test.sh` for Linux/Git Bash
 
 ### Testing Optimistic Locking
+**PowerShell:**
+```powershell
+.\concurrent-test.ps1 "http://localhost:8080/api/orders/optimistic" 1 1 5
+```
+**Bash:**
 ```bash
 ./concurrent-test.sh http://localhost:8080/api/orders/optimistic 1 1 5
 ```
 **What to expect:** Some requests will succeed, but others will fail instantly with a message indicating a conflict (`OptimisticLockException`). This is because multiple requests read the same `version` concurrently, but only the first one to save successfully increments the version.
 
 ### Testing Pessimistic Locking
+**PowerShell:**
+```powershell
+.\concurrent-test.ps1 "http://localhost:8080/api/orders/pessimistic" 1 1 5
+```
+**Bash:**
 ```bash
 ./concurrent-test.sh http://localhost:8080/api/orders/pessimistic 1 1 5
 ```
